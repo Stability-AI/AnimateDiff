@@ -1,5 +1,6 @@
 ToonYou:
-  base: "~/.cache/huggingface/diffusers"
+  base: "/home/dmarx/.cache/huggingface/diffusers"
+  #base: "runwayml/stable-diffusion-v1-5"
   path: "~/sd-docker-test/data/Lora/3D_rendering_style/3Dmm_V12.safetenseors"
   motion_module:
     - "models/Motion_Module/mm_sd_v15.ckpt"
