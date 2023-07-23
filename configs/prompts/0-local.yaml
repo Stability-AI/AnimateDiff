@@ -1,0 +1,15 @@
+ToonYou:
+  base: "~/.cache/huggingface/diffusers"
+  path: "~/sd-docker-test/data/Lora/3D_rendering_style/3Dmm_V12.safetenseors"
+  motion_module:
+    - "models/Motion_Module/mm_sd_v15.ckpt"
+
+  seed: [0]
+  steps: 25
+  guidance_scale: 7.5
+
+  prompt:
+    - "best quality, masterpiece, 1girl, looking at viewer, blurry background, upper body, contemporary, dress"
+
+  n_prompt:
+    - "badhandv4,easynegative,ng_deepnegative_v1_75t,verybadimagenegative_v1.3, bad-artist, bad_prompt_version2-neg, teeth"
