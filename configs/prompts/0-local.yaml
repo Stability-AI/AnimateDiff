@@ -1,5 +1,7 @@
 ToonYou:
-  base: "/home/dmarx/.cache/huggingface/diffusers"
+  # base is not respected atm. pass it in as --pretrained_model_path arg
+  #base: "/home/dmarx/.cache/huggingface/diffusers"
+  base: "/home/dmarx/.cache/huggingface/hub/models--runwayml--stable-diffusion-v1-5/snapshots/c9ab35ff5f2c362e9e22fbafe278077e196057f0"
   #base: "runwayml/stable-diffusion-v1-5"
   path: "~/sd-docker-test/data/Lora/3D_rendering_style/3Dmm_V12.safetenseors"
   motion_module:

@@ -26,6 +26,60 @@ from safetensors import safe_open
 import math
 from pathlib import Path
 
+from loguru import logger
+
+
+### cannibalized from UNet3DConditionModel.from_pretrained_2d
+def load_unet(fpath, inference_config):
+    cls = UNet3DConditionModel
+    logger.info("loading unet2d")
+    pretrained_model_path = fpath
+    config = OmegaConf.to_container(OmegaConf.load(Path(pretrained_model_path) / 'unet' / 'config.json'))
+    logger.info("loaded config")
+    logger.debug(config)
+    config["_class_name"] = cls.__name__
+    config["down_block_types"] = [
+        "CrossAttnDownBlock3D",
+        "CrossAttnDownBlock3D",
+        "CrossAttnDownBlock3D",
+        "DownBlock3D"
+    ]
+    config["up_block_types"] = [
+        "UpBlock3D",
+        "CrossAttnUpBlock3D",
+        "CrossAttnUpBlock3D",
+        "CrossAttnUpBlock3D"
+    ]
+
+    # this should really just be a better yaml config
+    unet_additional_kwargs = OmegaConf.to_container(inference_config.unet_additional_kwargs)#{} # unless this comes from inference config?
+    
+    model = cls.from_config(config, **unet_additional_kwargs)
+    logger.info("built class instance from config")
+
+    #from diffusers.utils import WEIGHTS_NAME
+    #model_file = Path(pretrained_model_path) / WEIGHTS_NAME)
+    WEIGHTS_NAME = "diffusion_pytorch_model.safetensors"
+    #WEIGHTS_NAME = "diffusion_pytorch_model.bin"
+    #WEIGHTS_NAME = "diffusion_pytorch_model.fp16.bin"
+    model_file = Path(pretrained_model_path) /'unet' / WEIGHTS_NAME
+    #state_dict = torch.load(model_file, map_location="cpu")
+    
+    state_dict = {}
+    with safe_open(model_file, framework="pt", device="cpu") as f:
+        for k in f.keys():
+            state_dict[k] = f.get_tensor(k)
+    logger.info("State dict loaded")
+    m, u = model.load_state_dict(state_dict, strict=False)
+
+    #logger.info(f"missing keys: {m}")
+    #logger.info(f"unrecognized keys: {u}")
+    logger.info(f"### missing keys: {len(m)}; \n### unexpected keys: {len(u)};")
+    params = [p.numel() if "temporal" in n else 0 for n, p in model.named_parameters()]
+    logger.info(f"### Temporal Module Parameters: {sum(params) / 1e6} M")
+
+    return model
+
 
 def main(args):
     *_, func_args = inspect.getargvalues(inspect.currentframe())
@@ -35,6 +89,7 @@ def main(args):
     savedir = f"samples/{Path(args.config).stem}-{time_str}"
     os.makedirs(savedir)
     inference_config = OmegaConf.load(args.inference_config)
+    logger.debug(inference_config)
 
     config  = OmegaConf.load(args.config)
     samples = []
@@ -50,10 +105,11 @@ def main(args):
             tokenizer    = CLIPTokenizer.from_pretrained(args.pretrained_model_path, subfolder="tokenizer")
             text_encoder = CLIPTextModel.from_pretrained(args.pretrained_model_path, subfolder="text_encoder")
             vae          = AutoencoderKL.from_pretrained(args.pretrained_model_path, subfolder="vae")            
-            unet         = UNet3DConditionModel.from_pretrained_2d(args.pretrained_model_path, subfolder="unet", unet_additional_kwargs=OmegaConf.to_container(inference_config.unet_additional_kwargs))
+            #unet         = UNet3DConditionModel.from_pretrained_2d(args.pretrained_model_path, subfolder="unet", unet_additional_kwargs=OmegaConf.to_container(inference_config.unet_additional_kwargs))
+            unet = load_unet(args.pretrained_model_path, inference_config)
 
-            if is_xformers_available(): unet.enable_xformers_memory_efficient_attention()
-            else: assert False
+            #if is_xformers_available(): unet.enable_xformers_memory_efficient_attention()
+            #else: assert False
 
             pipeline = AnimationPipeline(
                 vae=vae, text_encoder=text_encoder, tokenizer=tokenizer, unet=unet,
@@ -92,6 +148,7 @@ def main(args):
                     converted_vae_checkpoint = convert_ldm_vae_checkpoint(base_state_dict, pipeline.vae.config)
                     pipeline.vae.load_state_dict(converted_vae_checkpoint)
                     # unet
+                    logger.debug(" converting unet checkpoint")
                     converted_unet_checkpoint = convert_ldm_unet_checkpoint(base_state_dict, pipeline.unet.config)
                     pipeline.unet.load_state_dict(converted_unet_checkpoint, strict=False)
                     # text_model
