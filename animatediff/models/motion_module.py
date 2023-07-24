@@ -12,8 +12,9 @@ from torch import nn
 #from diffusers import ModelMixin
 from diffusers.utils import BaseOutput
 from diffusers.utils.import_utils import is_xformers_available
-from diffusers.models.attention import FeedForward
-from diffusers.models.cross_attention import CrossAttention
+from diffusers.models.attention import CrossAttention, FeedForward
+#from diffusers.models.attention import FeedForward
+#from diffusers.models.cross_attention import CrossAttention
 
 from einops import rearrange, repeat
 import math

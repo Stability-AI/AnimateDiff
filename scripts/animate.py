@@ -108,8 +108,8 @@ def main(args):
             #unet         = UNet3DConditionModel.from_pretrained_2d(args.pretrained_model_path, subfolder="unet", unet_additional_kwargs=OmegaConf.to_container(inference_config.unet_additional_kwargs))
             unet = load_unet(args.pretrained_model_path, inference_config)
 
-            #if is_xformers_available(): unet.enable_xformers_memory_efficient_attention()
-            #else: assert False
+            if is_xformers_available(): unet.enable_xformers_memory_efficient_attention()
+            else: assert False
 
             pipeline = AnimationPipeline(
                 vae=vae, text_encoder=text_encoder, tokenizer=tokenizer, unet=unet,
@@ -125,15 +125,19 @@ def main(args):
             
             # 1.2 T2I
             if model_config.path != "":
+                logger.debug(f"model_config.path: {model_config.path}")
+                logger.debug(f'model_config.path.endswith(".safetensors") {model_config.path.strip().endswith(".safetensors")}')
                 if model_config.path.endswith(".ckpt"):
                     state_dict = torch.load(model_config.path)
                     pipeline.unet.load_state_dict(state_dict)
                     
                 elif model_config.path.endswith(".safetensors"):
+                    logger.debug("dealing with safetensors")
                     state_dict = {}
                     with safe_open(model_config.path, framework="pt", device="cpu") as f:
                         for key in f.keys():
                             state_dict[key] = f.get_tensor(key)
+                    logger.debug(len(state_dict))
                             
                     is_lora = all("lora" in k for k in state_dict.keys())
                     if not is_lora:
@@ -143,6 +147,7 @@ def main(args):
                         with safe_open(model_config.base, framework="pt", device="cpu") as f:
                             for key in f.keys():
                                 base_state_dict[key] = f.get_tensor(key)                
+                    logger.debug(len(base_state_dict))
                     
                     # vae
                     converted_vae_checkpoint = convert_ldm_vae_checkpoint(base_state_dict, pipeline.vae.config)
